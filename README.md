@@ -119,7 +119,7 @@ git clone [https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing.git](https
 
     - A: 请确保您使用的是 `Advanced Tile Merger` 并正确连接了 `tile_config`。如果输出依然是列表，请检查是否在 Merger 之后又连接了不支持 List 的旧版节点。
 
-- **Q: 为什么无法在 ComfyUI Manager 中安装？**
+- **Q: 为什么无法在 [ComfyUI Manager](https://github.com/Comfy-Org/ComfyUI-Manager) 中安装？**
 	- A: 当前还未发布到自定义节点的公共集合中，已加入待办。
 
 ## 🤝 贡献与反馈
