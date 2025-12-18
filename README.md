@@ -32,7 +32,7 @@ git clone [https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing.git](https
 ## 🧩 节点详解
 
 ### 1. 🔧 Advanced Tile Splitter (分块器)
-
+![](./nodes/tile_splitter.png)
 将输入的大图或 Latent 空间分割成重叠的小块。
 
 - **输入端口**:
@@ -53,7 +53,7 @@ git clone [https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing.git](https
     - `tile_config`: 核心配置文件（必需连接至 Merger），包含合并所需的所有元数据。
 
 ### 2. 🔧 Advanced Tile Merger (合并器)
-
+![](./nodes/tile_merger.png)
 根据分块配置将处理后的片段无缝还原。
 
 - **输入端口**:
@@ -97,6 +97,11 @@ git clone [https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing.git](https
 
 该方法本质上是一种**软混合（Soft Blending）**，通过在重叠区域进行多图层像素的加权平均，达成高质量、无接缝的大图合成效果。
 ## 🚀 示例工作流
+### SDXL 经典分块采样高清修复复刻
+![](<./example_workflows/SDXL 经典分块采样高清修复复刻.png>)
+
+### Z-Image质量升级
+![](./example_workflows/Z-Image质量升级.png)
 
 ### 
 
