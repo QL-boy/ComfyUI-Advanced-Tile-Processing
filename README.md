@@ -9,7 +9,6 @@
 - **Seamless Weighted Fusion**: Built-in multiple blending modes (Gaussian, Cosine, Linear). Through weighted averaging of overlapping regions across multiple layers, it maximizes the elimination of "grid seams" produced by physical stitching.
 - **Metadata-Driven Workflow**: The Splitter generates a unique `TILE_CONFIG` object containing original dimensions, scaling factors, and coordinates. The Merger automatically reads configurations for one-click restoration without manual parameter alignment.
 - **Deep Compatibility**: Perfectly compatible with ComfyUI's list execution mechanism. Supports submitting tiles as `BATCH` for maximum inference speed or as `LIST` for loop node processing. When VRAM is insufficient, `LIST` is recommended over `BATCH`.
-- **High-Performance Architecture**: Fully based on PyTorch tensor operations with GPU acceleration, ensuring performance remains optimal when handling large images.
 - **Dynamic Size Support (Tiled Upscale)**: Supports dynamic size adjustment (Tiled Upscale), allowing upscaling after tiling. The Merger can automatically detect fragment size changes and dynamically adjust canvas size.
 
 ## 🛠 Installation Instructions
@@ -127,4 +126,5 @@ Feel free to submit Issues or Pull Requests. If you find areas for improvement w
 ## 📜 License
 
 This project is open-source under the [Apache-2.0 license](https://github.com/QL-boy/comfyui-ps-plugin#Apache-2.0-1-ov-file).
+
 
