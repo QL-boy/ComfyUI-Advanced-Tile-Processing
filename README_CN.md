@@ -9,7 +9,6 @@
 - **无缝加权融合 (Soft Blending)**：内置多种混合模式（Gaussian, Cosine, Linear）。通过多层重叠区域的加权平均，最大化消除物理拼接产生的“网格接缝”。
 - **元数据驱动流 (Metadata-Driven Workflow)**：Splitter 生成唯一的 `TILE_CONFIG` 对象，包含原始尺寸、缩放因子及坐标。Merger 自动读取配置一键还原，用户无需手动对齐参数。
 - **深度兼容性**：完美适配 ComfyUI 的列表执行机制。支持将分块作为 `BATCH` 提交以获得最高推理速度，或作为 `LIST` 提交以支持循环节点处理。显存不足的情况下推荐 `LIST` 替代 `BATCH` 。
-- **高性能架构**：完全基于 PyTorch 张量运算，GPU 加速，保证处理处理大图时性能在线。
 - **动态尺寸支持 (Tiled Upscale)**：支持动态尺寸调整（Tiled Upscale），在分块后进行放大处理。Merger 能够自动检测片段尺寸变化并动态调整画布大小。
 
 ## 🛠 安装说明
@@ -127,4 +126,5 @@ git clone [https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing.git](https
 ## 📜 许可说明
 
 本项目基于 [Apache-2.0 license](https://github.com/QL-boy/comfyui-ps-plugin#Apache-2.0-1-ov-file) 许可证开源。
+
 
