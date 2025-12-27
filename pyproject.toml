@@ -28,7 +28,7 @@ Documentation = "https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing/wiki
 "Bug Tracker" = "https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing/issues"
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "qlboy"
 DisplayName = "ComfyUI-Advanced-Tile-Processing"
 Icon = ""
 includes = [] 
