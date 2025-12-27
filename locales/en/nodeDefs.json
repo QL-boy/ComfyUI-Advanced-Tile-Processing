@@ -1,0 +1,88 @@
+{
+    "CustomTileSplitter": {
+        "display_name": "🔧 Advanced Tile Splitter",
+        "description": "Splits large images or latents into smaller tiles with overlap for processing. Supports batch and list outputs.",
+        "inputs": {
+            "tile_size": {
+                "name": "Tile Size",
+                "tooltip": "Resolution of each tile in pixels. Power of 2 (e.g., 512, 1024) is recommended."
+            },
+            "overlap": {
+                "name": "Overlap",
+                "tooltip": "Number of overlapping pixels between adjacent tiles to prevent seams."
+            },
+            "image": {
+                "name": "Image",
+                "tooltip": "Optional input image to split."
+            },
+            "latent": {
+                "name": "Latent",
+                "tooltip": "Optional input latent to split."
+            }
+        },
+        "outputs": {
+            "0": {
+                "name": "Tiles (Batch)",
+                "tooltip": "All image tiles stacked into a single batch tensor."
+            },
+            "1": {
+                "name": "Tiles (List)",
+                "tooltip": "List of individual image tiles (useful for loop processing)."
+            },
+            "2": {
+                "name": "Latent Tiles (Batch)",
+                "tooltip": "All latent tiles stacked into a single batch."
+            },
+            "3": {
+                "name": "Latent Tiles (List)",
+                "tooltip": "List of individual latent tiles."
+            },
+            "4": {
+                "name": "Tile Config",
+                "tooltip": "Configuration data required by the Merger node to rebuild the image."
+            }
+        }
+    },
+    "CustomTileMerger": {
+        "display_name": "🔧 Advanced Tile Merger",
+        "description": "Merges processed tiles back into a full image/latent using smooth weighted blending.",
+        "inputs": {
+            "tile_config": {
+                "name": "Tile Config",
+                "tooltip": "The configuration output from the Splitter node."
+            },
+            "blend_mode": {
+                "name": "Blend Mode",
+                "tooltip": "Algorithm used to blend overlapping areas.",
+                "options": {
+                    "gaussian": "Gaussian",
+                    "linear": "Linear",
+                    "cosine": "Cosine",
+                    "none": "None"
+                }
+            },
+            "feather_percent": {
+                "name": "Feather (%)",
+                "tooltip": "Percentage of the overlap area used for blending transition."
+            },
+            "processed_tiles_image": {
+                "name": "Processed Image Tiles",
+                "tooltip": "The list or batch of processed image tiles to merge."
+            },
+            "processed_tiles_latent": {
+                "name": "Processed Latent Tiles",
+                "tooltip": "The list or batch of processed latent tiles to merge."
+            }
+        },
+        "outputs": {
+            "0": {
+                "name": "Merged Image",
+                "tooltip": "The final reconstructed full-resolution image."
+            },
+            "1": {
+                "name": "Merged Latent",
+                "tooltip": "The final reconstructed full-resolution latent."
+            }
+        }
+    }
+}
