@@ -30,7 +30,7 @@ Documentation = "https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing/wiki
 [tool.comfy]
 PublisherId = "qlboy"
 DisplayName = "ComfyUI-Advanced-Tile-Processing"
-Icon = ""
+Icon = "https://raw.githubusercontent.com/QL-boy/ComfyUI-Advanced-Tile-Processing/main/icon.png"
 includes = [] 
 # "requires-comfyui" = ">=1.0.0"  # ComfyUI version compatibility
 
