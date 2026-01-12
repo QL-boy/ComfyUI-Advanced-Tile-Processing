@@ -1,78 +1,84 @@
 import torch
+import torch.nn.functional as F
 import math
 
 def generate_weight_mask(shape, blend_mode="gaussian", feather=0.25, device="cpu"):
     """
-    生成用于分块融合的权重遮罩
+    Generates a weight mask with correct feathering logic.
     shape: (H, W) or (C, H, W)
-    blend_mode: 'linear', 'gaussian', 'cosine', 'none'
-    feather: 0.0 - 1.0 (羽化范围比例)
     """
     if len(shape) == 3:
         h, w = shape[1], shape[2]
     else:
         h, w = shape[0], shape[1]
         
-    # 创建基础网格
-    # linspace 生成从 0 到 1 的线性空间
+    # Grid: -1 to 1
     x = torch.linspace(-1, 1, w, device=device)
     y = torch.linspace(-1, 1, h, device=device)
     grid_y, grid_x = torch.meshgrid(y, x, indexing='ij')
     
-    # 调整羽化范围，feather越大，有效中心区域越小，边缘衰减越宽
-    # 我们通过缩放网格坐标来控制边缘
-    if feather <= 0:
-        mask = torch.ones((h, w), device=device)
-    else:
-        # 映射使得边缘 feather% 的区域从 1 衰减到 0
-        # 这里的逻辑是：在 1-feather 范围内是 1，超过这个范围开始衰减
-        scale = 1.0 / (1.0 - feather + 1e-6) # 避免除零
+    # Feather calculation
+    # We want a plateau of 1.0 in the center, decaying to 0.0 at edges.
+    # The 'feather' parameter defines the % of the radius that is decaying.
+    # Distance from center d: 0 -> 1
+    # Effective feather region starts at 1 - feather
+    
+    # Use max dist on either axis (Linear box falloff) or Euclidean (Circular)
+    # Usually box falloff is better for rectangular tiles
+    
+    dist_x = torch.abs(grid_x)
+    dist_y = torch.abs(grid_y)
+    
+    # Combine distances based on mode
+    if blend_mode == "gaussian":
+        # Radial Euclidean distance for smooth circular falloff
+        d = torch.sqrt(dist_x**2 + dist_y**2)
+        # Sigma derived from feather. 
+        # If feather=0.5, we want 1.0 at d=0.5 and near 0 at d=1.0
+        # This is hard to map exactly to feather %.
+        # Let's switch to a robust sigmoid-like falloff for Gaussian emulation or use standard Gaussian.
+        sigma = 0.5 
+        mask = torch.exp(-(d**2) / (2 * sigma**2))
         
-        if blend_mode == "gaussian":
-            # 高斯分布: exp(-(x^2 + y^2) / sigma)
-            # 调整 sigma 使得在边缘处接近 0
-            d = torch.sqrt(grid_x**2 + grid_y**2)
-            sigma = 0.5  # 标准差
-            mask = torch.exp(-(d**2) / (2 * sigma**2))
-            # 归一化到 0-1 并截断边缘
-            mask = (mask - mask.min()) / (mask.max() - mask.min())
-            
-        elif blend_mode == "cosine":
-            # 余弦窗口
-            mask_x = torch.cos(grid_x * math.pi / 2)
-            mask_y = torch.cos(grid_y * math.pi / 2)
-            mask = mask_x * mask_y
-            mask = torch.clamp(mask, 0, 1)
-            
-        elif blend_mode == "linear":
-            # 线性金字塔
-            mask_x = 1.0 - torch.abs(grid_x)
-            mask_y = 1.0 - torch.abs(grid_y)
-            mask = torch.min(mask_x, mask_y)
-            mask = torch.clamp(mask, 0, 1)
-            
-        else: # none
-            mask = torch.ones((h, w), device=device)
+    elif blend_mode == "cosine":
+        # Cosine window
+        mask_x = torch.cos(grid_x * math.pi / 2)
+        mask_y = torch.cos(grid_y * math.pi / 2)
+        mask = mask_x * mask_y
+        
+    else: # linear or default (box-like feather)
+        # Calculates how far we are from the edge (0=center, 1=edge)
+        # We want: 0 to (1-feather) -> Value 1
+        #          (1-feather) to 1   -> Value 1 down to 0
+        
+        # Max distance on either axis
+        d = torch.max(dist_x, dist_y)
+        
+        # Threshold
+        start_decay = 1.0 - feather
+        if start_decay >= 1.0: 
+            mask = torch.ones_like(d)
+        else:
+            # Linear ramp: (d - start) / (1 - start) -> 0 to 1 in decay zone
+            ramp = (d - start_decay) / (1.0 - start_decay + 1e-6)
+            mask = 1.0 - torch.clamp(ramp, 0, 1)
 
-    # 扩展维度以匹配 Image (H,W,C) 或 Latent (C,H,W)
-    # 假设输入 shape 决定了输出 mask 的维度
+    # Normalize mask range 0-1
+    mask = torch.clamp(mask, 0, 1)
+
     if len(shape) == 3:
-        # Latent: (C, H, W), mask 需要是 (1, H, W) 用于广播
         return mask.unsqueeze(0)
     else:
-        # Image 通常在 Comfy 中处理时如果是单张 mask 是 (H, W)
         return mask
 
 def get_tiled_splits(full_height, full_width, tile_size, overlap):
     """
-    计算分块坐标。采用 "覆盖优先" 策略，最后一块可能会有较大的重叠，
-    以避免产生极小的边缘切片。
+    Calculates tile coordinates.
     Returns: list of (y, x, h, w)
     """
     stride = tile_size - overlap
     splits = []
     
-    # 简单的网格生成
     y_coords = []
     current_y = 0
     while current_y < full_height:
@@ -80,8 +86,7 @@ def get_tiled_splits(full_height, full_width, tile_size, overlap):
         if current_y + tile_size >= full_height:
             break
         current_y += stride
-    
-    # 修正最后一个坐标，确保不越界且覆盖边缘
+    # Fix last
     if y_coords[-1] + tile_size > full_height:
         y_coords[-1] = max(0, full_height - tile_size)
         
@@ -92,15 +97,121 @@ def get_tiled_splits(full_height, full_width, tile_size, overlap):
         if current_x + tile_size >= full_width:
             break
         current_x += stride
-        
+    # Fix last
     if x_coords[-1] + tile_size > full_width:
         x_coords[-1] = max(0, full_width - tile_size)
 
     for y in y_coords:
         for x in x_coords:
-            # 实际切片大小（通常等于 tile_size，除非原图小于 tile_size）
             h = min(tile_size, full_height - y)
             w = min(tile_size, full_width - x)
             splits.append((y, x, h, w))
             
     return splits
+
+# --- Laplacian Pyramid Blending Utilities ---
+
+def gaussian_pyramid(img, levels):
+    pyramid = [img]
+    for i in range(levels - 1):
+        # Blur and downsample
+        # Kernel: [1, 4, 6, 4, 1] / 16 approximation
+        # Using avg_pool for speed/memory or standard gaussian kernel
+        # For seamless blending, simple bilinear downsample often suffices
+        down = F.interpolate(pyramid[-1], scale_factor=0.5, mode='bilinear', align_corners=False)
+        pyramid.append(down)
+    return pyramid
+
+def laplacian_pyramid(img, levels):
+    gaussian_pyr = gaussian_pyramid(img, levels)
+    laplacian_pyr = []
+    for i in range(levels - 1):
+        current = gaussian_pyr[i]
+        next_up = F.interpolate(gaussian_pyr[i+1], size=current.shape[2:], mode='bilinear', align_corners=False)
+        laplacian_pyr.append(current - next_up)
+    laplacian_pyr.append(gaussian_pyr[-1])
+    return laplacian_pyr
+
+def reconstruct_from_laplacian(lap_pyr):
+    current = lap_pyr[-1]
+    for i in range(len(lap_pyr) - 2, -1, -1):
+        up = F.interpolate(current, size=lap_pyr[i].shape[2:], mode='bilinear', align_corners=False)
+        current = lap_pyr[i] + up
+    return current
+
+def laplacian_pyramid_blending(tiles, splits, canvas_shape, feather=0.25, device="cpu"):
+    """
+    Performs Laplacian Pyramid Blending on a set of tiles.
+    tiles: list of tensors [1, C, H, W]
+    splits: list of (y, x, h, w)
+    canvas_shape: (H, W)
+    """
+    H, W = canvas_shape
+    C = tiles[0].shape[1]
+    
+    # Determine levels based on tile size
+    min_dim = min(tiles[0].shape[2], tiles[0].shape[3])
+    levels = int(math.log2(min_dim)) - 2 # Keep base ~4-8 pixels
+    levels = max(1, min(levels, 5)) # Cap levels to save VRAM
+
+    # Initialize Pyramids for the Canvas
+    # We need to accumulate Weighted Laplacians and Weights for each level
+    # Format: List of Tensors (one per level)
+    canvas_L_pyr = [] # Numerator
+    weight_G_pyr = [] # Denominator
+    
+    # Create empty canvas levels
+    # Note: Dimensions change per level
+    curr_h, curr_w = H, W
+    for i in range(levels):
+        canvas_L_pyr.append(torch.zeros((1, C, curr_h, curr_w), device=device))
+        weight_G_pyr.append(torch.zeros((1, 1, curr_h, curr_w), device=device))
+        curr_h = int(curr_h * 0.5)
+        curr_w = int(curr_w * 0.5)
+
+    # Process each tile
+    for idx, tile in enumerate(tiles):
+        y, x, h, w = splits[idx]
+        
+        # 1. Generate Mask for Tile
+        # Use simple Linear feather for mask pyramid basis
+        mask = generate_weight_mask((C, h, w), blend_mode="linear", feather=feather, device=device)
+        mask = mask.unsqueeze(0) # [1, C, h, w] (broadcasts to C usually or 1)
+        if mask.shape[1] != 1: mask = mask[:, 0:1, :, :] # Ensure [1, 1, h, w]
+
+        # 2. Build Pyramids for Tile and Mask
+        tile_L_pyr = laplacian_pyramid(tile, levels)
+        mask_G_pyr = gaussian_pyramid(mask, levels) # Weight uses Gaussian pyr
+        
+        # 3. Accumulate into Canvas Pyramids
+        for i in range(levels):
+            t_L = tile_L_pyr[i]
+            m_G = mask_G_pyr[i]
+            
+            # Dimensions at this level
+            lvl_H, lvl_W = canvas_L_pyr[i].shape[2], canvas_L_pyr[i].shape[3]
+            
+            # Map coordinates to this level
+            scale = 1.0 / (2**i)
+            ly, lx = int(y * scale), int(x * scale)
+            lh, lw = t_L.shape[2], t_L.shape[3]
+            
+            # Safety checks for rounding
+            if ly + lh > lvl_H: lh = lvl_H - ly
+            if lx + lw > lvl_W: lw = lvl_W - lx
+            
+            # Add to accumulators
+            # L_final = Sum(L_i * W_i) / Sum(W_i)
+            # Accumulate numerator
+            canvas_L_pyr[i][:, :, ly:ly+lh, lx:lx+lw] += t_L[:, :, :lh, :lw] * m_G[:, :, :lh, :lw]
+            # Accumulate denominator
+            weight_G_pyr[i][:, :, ly:ly+lh, lx:lx+lw] += m_G[:, :, :lh, :lw]
+
+    # Normalize each level
+    normalized_L_pyr = []
+    for i in range(levels):
+        norm = canvas_L_pyr[i] / (weight_G_pyr[i] + 1e-6)
+        normalized_L_pyr.append(norm)
+
+    # Reconstruct
+    return reconstruct_from_laplacian(normalized_L_pyr)
