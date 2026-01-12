@@ -1,87 +1,92 @@
 {
     "CustomTileSplitter": {
-        "display_name": "🔧 Advanced Tile Splitter",
-        "description": "Splits large images or latents into smaller tiles with overlap for processing. Supports batch and list outputs.",
+        "display_name": "🔧 Advanced Tile Splitter (Smart)",
+        "description": "Intelligent image tile splitting node. Supports automatic padding to fit 8x multiple dimensions, and synchronous slicing of Latent and Image.",
         "inputs": {
             "tile_size": {
-                "name": "Tile Size",
-                "tooltip": "Resolution of each tile in pixels. Power of 2 (e.g., 512, 1024) is recommended."
+                "name": "Tile Size (px)",
+                "tooltip": "Tile resolution. Recommended 512 or 1024."
             },
             "overlap": {
-                "name": "Overlap",
-                "tooltip": "Number of overlapping pixels between adjacent tiles to prevent seams."
+                "name": "Overlap Pixels (px)",
+                "tooltip": "Overlap area between tiles. Automatically uses 1/8 of tile size when set to 0."
+            },
+            "force_multiple_of_8": {
+                "name": "Force 8x Multiple Padding",
+                "tooltip": "If True, automatically pads the image edges to meet VAE compression requirements and avoid edge artifacts."
             },
             "image": {
                 "name": "Image",
-                "tooltip": "Optional input image to split."
+                "tooltip": "Input image."
             },
             "latent": {
                 "name": "Latent",
-                "tooltip": "Optional input latent to split."
+                "tooltip": "Input Latent."
             }
         },
         "outputs": {
             "0": {
-                "name": "Tiles (Batch)",
-                "tooltip": "All image tiles stacked into a single batch tensor."
+                "name": "Config",
+                "tooltip": "Core configuration data, must be connected to Merger node."
             },
             "1": {
-                "name": "Tiles (List)",
-                "tooltip": "List of individual image tiles (useful for loop processing)."
+                "name": "Image Tiles (Batch)",
+                "tooltip": "Tile images in Batch Tensor format."
             },
             "2": {
-                "name": "Latent Tiles (Batch)",
-                "tooltip": "All latent tiles stacked into a single batch."
+                "name": "Image Tiles (List)",
+                "tooltip": "Tile images in List format."
             },
             "3": {
-                "name": "Latent Tiles (List)",
-                "tooltip": "List of individual latent tiles."
+                "name": "Latent Tiles (Batch)",
+                "tooltip": "Latent tiles in Batch format."
             },
             "4": {
-                "name": "Tile Config",
-                "tooltip": "Configuration data required by the Merger node to rebuild the image."
+                "name": "Latent Tiles (List)",
+                "tooltip": "Latent tiles in List format."
             }
         }
     },
     "CustomTileMerger": {
-        "display_name": "🔧 Advanced Tile Merger",
-        "description": "Merges processed tiles back into a full image/latent using smooth weighted blending.",
+        "display_name": "🔧 Advanced Tile Merger (Multi-Mode)",
+        "description": "Multi-mode tile merging node. Supports Laplacian pyramid blending for Hollywood-level seamless stitching.",
         "inputs": {
             "tile_config": {
                 "name": "Tile Config",
-                "tooltip": "The configuration output from the Splitter node."
+                "tooltip": "Must connect to the Config output of Splitter node."
             },
             "blend_mode": {
                 "name": "Blend Mode",
-                "tooltip": "Algorithm used to blend overlapping areas.",
+                "tooltip": "Recommended to use Gaussian or Laplacian. Laplacian mode is computationally intensive but preserves the best details.",
                 "options": {
-                    "gaussian": "Gaussian",
-                    "linear": "Linear",
-                    "cosine": "Cosine",
+                    "gaussian": "Gaussian (Standard)",
+                    "linear": "Linear (Fast)",
+                    "cosine": "Cosine (Smooth)",
+                    "laplacian": "Laplacian Pyramid (Best Quality)",
                     "none": "None"
                 }
             },
             "feather_percent": {
-                "name": "Feather (%)",
-                "tooltip": "Percentage of the overlap area used for blending transition."
+                "name": "Feather Ratio (%)",
+                "tooltip": "Controls the softness of blended edges."
             },
             "processed_tiles_image": {
                 "name": "Processed Image Tiles",
-                "tooltip": "The list or batch of processed image tiles to merge."
+                "tooltip": "Receives tile images in Batch or List format."
             },
             "processed_tiles_latent": {
                 "name": "Processed Latent Tiles",
-                "tooltip": "The list or batch of processed latent tiles to merge."
+                "tooltip": "Receives latent tiles in Batch or List format."
             }
         },
         "outputs": {
             "0": {
                 "name": "Merged Image",
-                "tooltip": "The final reconstructed full-resolution image."
+                "tooltip": "Reconstructed full-resolution image."
             },
             "1": {
                 "name": "Merged Latent",
-                "tooltip": "The final reconstructed full-resolution latent."
+                "tooltip": "Reconstructed full-resolution latent."
             }
         }
     }
