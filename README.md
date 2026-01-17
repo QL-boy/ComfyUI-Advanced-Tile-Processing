@@ -1,6 +1,6 @@
 # ComfyUI-Advanced-Tile-Processing
 
-[中文](https://www.google.com/search?q=README_CN.md "null") [English](https://www.google.com/search?q=README.md "null")
+[中文](README_CN.md) [English](README.md)
 
 **ComfyUI-Advanced-Tile-Processing** is an advanced custom node plugin suite designed specifically for ComfyUI. It aims to solve VRAM out-of-memory (OOM) bottlenecks in ultra-high-resolution image generation and processing by employing intelligent tiling and multiple advanced fusion techniques for seamless merging, enabling stable processing of 4K, 8K, and even higher resolution images on standard consumer-grade graphics cards.
 
@@ -315,3 +315,4 @@ Feel free to submit Issues or Pull Requests. If you find areas for improvement w
 
 
 This project is open-source under the [Apache-2.0 license](https://github.com/QL-boy/comfyui-ps-plugin#Apache-2.0-1-ov-file "null").
+
