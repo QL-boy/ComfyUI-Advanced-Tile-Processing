@@ -1,0 +1,22 @@
+{
+  "settingsCategories": {
+    "TileProcessing": "平铺处理",
+    "AdvancedBlending": "高级混合",
+    "SeamOptimization": "接缝优化"
+  },
+  "nodeCategories": {
+    "image/postprocessing": "图像/后处理"
+  },
+  "commonTerms": {
+    "tile": "平铺块",
+    "overlap": "重叠区域",
+    "blend": "混合",
+    "seam": "接缝",
+    "split": "分割",
+    "merge": "合并",
+    "config": "配置",
+    "strength": "强度",
+    "optimal": "最优",
+    "middle": "居中"
+  }
+}
