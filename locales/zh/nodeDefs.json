@@ -1,92 +1,115 @@
 {
     "CustomTileSplitter": {
-        "display_name": "🔧 高级分块 (Splitter)",
-        "description": "智能图像分块节点。支持自动补全(Padding)以适应8倍数尺寸，支持Latent与Image同步切片。",
+        "display_name": "🔧 高级平铺分割器",
+        "description": "将图像或潜空间表示分割成重叠的平铺块，用于高分辨率处理。支持灵活网格配置，可自动或手动设置行列数。",
         "inputs": {
             "tile_size": {
-                "name": "分块大小 (px)",
-                "tooltip": "切片分辨率。建议 512 或 1024。"
+                "name": "平铺块尺寸",
+                "tooltip": "每个平铺块的基础尺寸（正方形）。指定行列数时，此值将作为目标尺寸，可能为适配网格而调整。"
             },
             "overlap": {
-                "name": "重叠像素 (px)",
-                "tooltip": "切片间的重叠区域。设为0时自动使用 1/8 大小。"
+                "name": "重叠像素",
+                "tooltip": "相邻平铺块之间的像素重叠区域。对于合并时的无缝混合至关重要。"
             },
-            "force_multiple_of_8": {
-                "name": "强制8倍数补全",
-                "tooltip": "若为True，会自动对图像进行边缘填充以符合VAE压缩要求，避免边缘伪影。"
+            "rows": {
+                "name": "行数",
+                "tooltip": "垂直分割数量。设为0则根据平铺块尺寸自动计算。"
+            },
+            "columns": {
+                "name": "列数",
+                "tooltip": "水平分割数量。设为0则根据平铺块尺寸自动计算。"
+            },
+            "normalize": {
+                "name": "对齐到倍数",
+                "tooltip": "将尺寸填充到64（图像）或8（潜空间）的倍数，确保与AI模型兼容。"
             },
             "image": {
-                "name": "图像 (Image)",
-                "tooltip": "输入图像。"
+                "name": "图像（可选）",
+                "tooltip": "要分割的输入图像。可使用图像或潜空间，无需同时提供两者。"
             },
             "latent": {
-                "name": "Latent (潜空间)",
-                "tooltip": "输入 Latent。"
+                "name": "潜空间（可选）",
+                "tooltip": "要分割的输入潜空间表示。可使用图像或潜空间，无需同时提供两者。"
             }
         },
         "outputs": {
             "0": {
-                "name": "配置 (Config)",
-                "tooltip": "核心配置数据，需连接到 Merger。"
+                "name": "平铺配置数据",
+                "tooltip": "包含平铺布局、坐标和尺寸的结构化配置数据，供平铺合并器使用。"
             },
             "1": {
-                "name": "图像分块 (Batch)",
-                "tooltip": "Batch Tensor 格式的分块图像。"
+                "name": "图像平铺块（批次）",
+                "tooltip": "所有提取的平铺块拼接为单个批次张量，便于并行处理。"
             },
             "2": {
-                "name": "图像分块 (List)",
-                "tooltip": "List 格式的分块图像。"
+                "name": "图像平铺块（列表）",
+                "tooltip": "每个平铺块作为独立的列表元素，保持原始位置关系。"
             },
             "3": {
-                "name": "Latent分块 (Batch)",
-                "tooltip": "Batch 格式的 Latent 分块。"
+                "name": "潜空间平铺块（批次）",
+                "tooltip": "潜空间表示的平铺块拼接为批次张量。"
             },
             "4": {
-                "name": "Latent分块 (List)",
-                "tooltip": "List 格式的 Latent 分块。"
+                "name": "潜空间平铺块（列表）",
+                "tooltip": "独立的潜空间平铺块列表结构，保持位置顺序。"
             }
         }
     },
     "CustomTileMerger": {
-        "display_name": "🔧 高级合并 (Merger)",
-        "description": "多模式分块合并节点。支持拉普拉斯金字塔融合，可实现好莱坞级的无缝拼接。",
+        "display_name": "🔧 高级平铺合并器",
+        "description": "使用高级混合算法、接缝优化和色彩校正技术，将处理后的平铺块重新组装为无缝的完整图像。",
         "inputs": {
             "tile_config": {
-                "name": "分块配置",
-                "tooltip": "必须连接 Splitter 的 Config 输出。"
+                "name": "平铺配置",
+                "tooltip": "由平铺分割器生成的平铺布局配置。"
             },
             "blend_mode": {
                 "name": "混合模式",
-                "tooltip": "推荐使用 Gaussian 或 Laplacian。Laplacian 模式计算量大但细节保留最好。",
+                "tooltip": "重叠平铺区域的混合算法。\n linear:线性渐变(简单过渡)\n gaussian:高斯模糊（经典混合）\n multi_band:多频带混合（效果最优）\nnone:无混合（最快）",
                 "options": {
-                    "gaussian": "高斯 (标准)",
-                    "linear": "线性 (快速)",
-                    "cosine": "余弦 (平滑)",
-                    "laplacian": "拉普拉斯金字塔 (最佳质量)",
-                    "none": "无"
+                    "linear": "线性渐变",
+                    "gaussian": "高斯模糊",
+                    "multi_band": "多频带（拉普拉斯金字塔）",
+                    "none": "无混合（硬切割）"
                 }
             },
-            "feather_percent": {
-                "name": "羽化比例 (%)",
-                "tooltip": "控制融合边缘的柔和度。"
+            "blend_strength": {
+                "name": "混合强度",
+                "tooltip": "混合效果的强度。值越高，过渡越平滑。"
+            },
+            "seam_mode": {
+                "name": "接缝放置",
+                "tooltip": "确定重叠区域最优接缝线的方法。\noptimal: 计算最优拼合接缝（慢速高质量）\nmiddle:中心线（简单快速）",
+                "options": {
+                    "optimal": "最优路径（最小差异）",
+                    "middle": "中心线（最简单）"
+                }
+            },
+            "histogram_matching": {
+                "name": "直方图匹配",
+                "tooltip": "调整每个平铺块的色彩分布以匹配相邻块，减少色彩不一致。"
+            },
+            "seam_search_radius": {
+                "name": "接缝搜索半径",
+                "tooltip": "将接缝搜索限制在距中心此距离内的像素。0表示完全搜索。"
             },
             "processed_tiles_image": {
-                "name": "处理后的图像",
-                "tooltip": "接收 Batch 或 List 格式的图像分块。"
+                "name": "已处理的图像平铺块",
+                "tooltip": "准备合并的增强/处理后的图像平铺块列表。"
             },
             "processed_tiles_latent": {
-                "name": "处理后的Latent",
-                "tooltip": "接收 Batch 或 List 格式的 Latent 分块。"
+                "name": "已处理的潜空间平铺块",
+                "tooltip": "准备合并的已处理潜空间表示列表。"
             }
         },
         "outputs": {
             "0": {
                 "name": "合并后的图像",
-                "tooltip": "重建图像。"
+                "tooltip": "平铺块无缝集成后的最终重建图像。"
             },
             "1": {
-                "name": "合并后的Latent",
-                "tooltip": "重建 Latent。"
+                "name": "合并后的潜空间",
+                "tooltip": "从合并平铺块重建的潜空间表示。"
             }
         }
     }
