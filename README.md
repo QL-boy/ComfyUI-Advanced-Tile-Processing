@@ -1,4 +1,5 @@
 # ComfyUI-Advanced-Tile-Processing
+[中文](README_CN.md) [English](README.md)
 
 **ComfyUI-Advanced-Tile-Processing** is an advanced custom node plugin suite designed specifically for ComfyUI. It aims to solve VRAM out-of-memory (OOM) bottlenecks in ultra-high-resolution image generation and processing by employing intelligent tiling and multiple advanced fusion techniques for seamless merging, enabling stable processing of 4K, 8K, and even higher resolution images on standard consumer-grade graphics cards.
 
