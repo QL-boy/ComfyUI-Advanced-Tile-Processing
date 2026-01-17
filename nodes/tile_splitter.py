@@ -1,153 +1,162 @@
 import torch
 import torch.nn.functional as F
-from ..utils.blending import get_tiled_splits
+import math
 
 class CustomTileSplitter:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "tile_size": ("INT", {"default": 512, "min": 64, "max": 8192, "step": 64}),
+                "tile_size": ("INT", {"default": 512, "min": 64, "max": 8192, "step": 8}),
                 "overlap": ("INT", {"default": 64, "min": 0, "max": 512, "step": 8}),
-                "force_multiple_of_8": ("BOOLEAN", {"default": True}),
+                "rows": ("INT", {"default": 0, "min": 0, "max": 32, "step": 1}),
+                "columns": ("INT", {"default": 0, "min": 0, "max": 32, "step": 1}),
+                "normalize": ("BOOLEAN", {"default": True}),
             },
             "optional": {
-                "image": ("IMAGE",),   # [B, H, W, C]
-                "latent": ("LATENT",), # {'samples': [B, C, H, W]}
+                "image": ("IMAGE",),
+                "latent": ("LATENT",),
             }
         }
 
-    # Strict UI Ordering: Config first, then Image Batch/List, then Latent Batch/List
     RETURN_TYPES = ("TILE_CONFIG", "IMAGE", "IMAGE", "LATENT", "LATENT")
     RETURN_NAMES = ("tile_config", "tiles_image_batch", "tiles_image_list", "tiles_latent_batch", "tiles_latent_list")
-    
-    # OUTPUT_IS_LIST: Config(False), ImgBatch(False), ImgList(True), LatBatch(False), LatList(True)
     OUTPUT_IS_LIST = (False, False, True, False, True)
     
     FUNCTION = "split_tiles"
-    CATEGORY = "image/processing/tile"
+    CATEGORY = "image/postprocessing"
 
-    def split_tiles(self, tile_size=512, overlap=64, force_multiple_of_8=True, image=None, latent=None):
-        tiles_image_batch = None
-        tiles_image_list = []
-        tiles_latent_batch = None
-        tiles_latent_list = []
-        
-        full_h, full_w = 0, 0
-        processing_image = False
-        processing_latent = False
+    def split_tiles(self, tile_size=512, overlap=64, rows=0, columns=0, normalize=True, image=None, latent=None):
+        if image is None and latent is None:
+            return ({}, None, [], None, [])
+
+        # 1. Base Dimensions
+        base_h, base_w = 0, 0
         batch_size = 1
-        original_h, original_w = 0, 0
+        is_image_input = image is not None
         
-        # Smart Overlap: If 0, default to 1/8 tile size
-        if overlap == 0:
-            overlap = max(8, tile_size // 8)
+        if is_image_input:
+            batch_size, base_h, base_w, _ = image.shape
+        else:
+            batch_size, _, l_h, l_w = latent['samples'].shape
+            base_h, base_w = l_h * 8, l_w * 8
 
-        # --- Image Preprocessing ---
-        if image is not None:
-            processing_image = True
-            batch_size, h, w, c = image.shape
-            original_h, original_w = h, w
-            
-            if force_multiple_of_8 and (h % 8 != 0 or w % 8 != 0):
-                pad_h = (8 - h % 8) % 8
-                pad_w = (8 - w % 8) % 8
-                # Pad format: (left, right, top, bottom) for last 2 dims if NCHW, 
-                # but input image is NHWC. Torch pad works on last dims.
-                # Use permute to NCHW for padding efficiency or pad manually.
-                # Let's use simple padding on tensor
-                image = F.pad(image, (0, 0, 0, pad_w, 0, pad_h), mode='reflect')
-                full_h, full_w = image.shape[1], image.shape[2]
-            else:
-                full_h, full_w = h, w
+        # 2. Padding Logic
+        align_step = 64 if normalize else 8
+        target_h = max(base_h, tile_size)
+        target_w = max(base_w, tile_size)
         
-        # --- Latent Preprocessing ---
+        if normalize:
+            target_h = math.ceil(target_h / align_step) * align_step
+            target_w = math.ceil(target_w / align_step) * align_step
+            
+        pad_h = target_h - base_h
+        pad_w = target_w - base_w
+        padded_h, padded_w = target_h, target_w
+
+        # 3. Grid Calculation
+        if overlap < 8: overlap = 8 
+
+        if rows > 0 and columns > 0:
+            n_rows = rows
+            n_cols = columns
+            tile_h = math.ceil((padded_h + (rows - 1) * overlap) / rows)
+            tile_w = math.ceil((padded_w + (columns - 1) * overlap) / columns)
+            tile_h = math.ceil(tile_h / 8) * 8
+            tile_w = math.ceil(tile_w / 8) * 8
+        else:
+            tile_h, tile_w = tile_size, tile_size
+            stride_h = tile_h - overlap
+            stride_w = tile_w - overlap
+            n_rows = math.ceil((padded_h - overlap) / stride_h) if stride_h > 0 else 1
+            n_cols = math.ceil((padded_w - overlap) / stride_w) if stride_w > 0 else 1
+
+        # 4. Generate Splits
+        splits = []
+        y_coords = []
+        if n_rows == 1: y_coords = [0]
+        else:
+            max_y = padded_h - tile_h
+            for r in range(n_rows):
+                if n_rows > 1: y = int(round(r * (max_y / (n_rows - 1))))
+                else: y = 0
+                y = (y // 8) * 8 
+                y_coords.append(y)
+                
+        x_coords = []
+        if n_cols == 1: x_coords = [0]
+        else:
+            max_x = padded_w - tile_w
+            for c in range(n_cols):
+                if n_cols > 1: x = int(round(c * (max_x / (n_cols - 1))))
+                else: x = 0
+                x = (x // 8) * 8
+                x_coords.append(x)
+
+        for r_idx, y in enumerate(y_coords):
+            for c_idx, x in enumerate(x_coords):
+                splits.append({
+                    "y": y, "x": x, 
+                    "h": tile_h, "w": tile_w,
+                    "row": r_idx, "col": c_idx
+                })
+
+        # 5. Data Extraction
+        out_img_batch = None
+        out_img_list = []
+        out_lat_batch = None
+        out_lat_list = []
+
+        if is_image_input:
+            img_padded = image.permute(0, 3, 1, 2)
+            if pad_h > 0 or pad_w > 0:
+                img_padded = F.pad(img_padded, (0, pad_w, 0, pad_h), mode='reflect')
+            img_padded = img_padded.permute(0, 2, 3, 1)
+
+            for s in splits:
+                y, x, h, w = s["y"], s["x"], s["h"], s["w"]
+                # Boundary check not strictly needed with reflect pad but good for safety
+                h = min(h, padded_h - y)
+                w = min(w, padded_w - x)
+                tile = img_padded[:, y:y+h, x:x+w, :]
+                out_img_list.append(tile)
+            
+            if len(out_img_list) > 0:
+                try: out_img_batch = torch.cat(out_img_list, dim=0)
+                except: out_img_batch = out_img_list[0] 
+
         if latent is not None:
-            processing_latent = True
-            samples = latent['samples'] # [B, C, H, W]
-            l_batch, l_c, l_h, l_w = samples.shape
-            
-            if not processing_image:
-                # Estimate dimensions from latent
-                scale_factor = 8 
-                original_h, original_w = l_h * scale_factor, l_w * scale_factor
-                full_h, full_w = original_h, original_w # Assume latent is already aligned or we track it
-                
-                # If forcing multiple of 8 on latent? Latents are usually 1/8th.
-                # If image wasn't provided, we assume latent is the source of truth.
-                # We do not pad latent here unless necessary, but usually VAE handles it.
-                # Let's stick to using pixel dimensions for calculations.
-                
-                tile_size_act = tile_size // scale_factor
-                overlap_act = overlap // scale_factor
-            else:
-                # If image exists, latent must match (approx).
-                # If image was padded, latent should ideally match that padded structure,
-                # but VAE encoding usually handles padding. 
-                # We will just split latent based on the pixel-space split logic scaled down.
-                pass
-
-        if not processing_image and not processing_latent:
-            raise ValueError("No input provided (Image or Latent required)")
-
-        # Calculate Splits (on pixel space)
-        splits = get_tiled_splits(full_h, full_w, tile_size, overlap)
-        
-        tile_config = {
-            "original_height": original_h, # Unpadded size
-            "original_width": original_w,
-            "padded_height": full_h,       # Padded size
-            "padded_width": full_w,
-            "tile_height": tile_size,
-            "tile_width": tile_size,
-            "overlap": overlap,
-            "splits": splits,
-            "batch_size": batch_size,
-            "force_multiple_of_8": force_multiple_of_8
-        }
-
-        # --- Slicing Image ---
-        if processing_image:
-            img_tiles = []
-            for (y, x, h, w) in splits:
-                tile = image[:, y:y+h, x:x+w, :]
-                img_tiles.append(tile)
-            
-            tiles_image_list = img_tiles
-            try:
-                tiles_image_batch = torch.cat(img_tiles, dim=0)
-            except:
-                pass # Should not happen if tiles are same size
-
-        # --- Slicing Latent ---
-        if processing_latent:
-            lat_tiles = []
             samples = latent['samples']
-            scale = 8
+            l_pad_h = pad_h // 8
+            l_pad_w = pad_w // 8
+            if l_pad_h > 0 or l_pad_w > 0:
+                samples = F.pad(samples, (0, l_pad_w, 0, l_pad_h), mode='reflect')
             
-            for (y, x, h, w) in splits:
-                # Map pixel coords to latent coords
-                ly, lx = y // scale, x // scale
-                lh, lw = h // scale, w // scale
-                
-                # Safety check for latent boundaries
-                # (When padding image, latent might not be perfectly aligned if not encoded from padded image)
-                # We clamp to max latent dims
-                max_lh, max_lw = samples.shape[2], samples.shape[3]
-                ly = min(ly, max_lh)
-                lx = min(lx, max_lw)
-                lh = min(lh, max_lh - ly)
-                lw = min(lw, max_lw - lx)
-
+            lat_tiles = []
+            for s in splits:
+                y, x, h, w = s["y"], s["x"], s["h"], s["w"]
+                ly, lx = y // 8, x // 8
+                lh, lw = h // 8, w // 8
                 tile = samples[:, :, ly:ly+lh, lx:lx+lw]
                 lat_tiles.append(tile)
             
-            tiles_latent_list = [{"samples": t} for t in lat_tiles]
+            out_lat_list = [{"samples": t} for t in lat_tiles]
             if len(lat_tiles) > 0:
-                # Only if all tiles same size
-                try:
-                    tiles_latent_batch = {"samples": torch.cat(lat_tiles, dim=0)}
-                except:
-                    tiles_latent_batch = None
+                try: out_lat_batch = {"samples": torch.cat(lat_tiles, dim=0)}
+                except: out_lat_batch = {"samples": lat_tiles[0]}
 
-        return (tile_config, tiles_image_batch, tiles_image_list, tiles_latent_batch, tiles_latent_list)
+        tile_config = {
+            "original_height": base_h,
+            "original_width": base_w,
+            "padded_height": padded_h,
+            "padded_width": padded_w,
+            "tile_height": tile_h,
+            "tile_width": tile_w,
+            "overlap": overlap,
+            "splits": splits,
+            "batch_size": batch_size,
+            "rows": n_rows,
+            "cols": n_cols
+        }
+
+        return (tile_config, out_img_batch, out_img_list, out_lat_batch, out_lat_list)
