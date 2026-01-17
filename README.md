@@ -47,7 +47,7 @@ git clone [https://github.com/QL-boy/ComfyUI-Advanced-Tile-Processing.git](https
 ## 🧩 Node Details
 
 ### 1. 🔧 Advanced Tile Splitter (Splitter)
-
+![](./nodes/tile_splitter.png)
 Splits the input large image or latent space into overlapping smaller tiles.
 
 - **Input Ports**:
@@ -82,7 +82,7 @@ Splits the input large image or latent space into overlapping smaller tiles.
         
 
 ### 2. 🔧 Advanced Tile Merger (Merger)
-
+![](./nodes/tile_merger.png)
 Seamlessly reconstructs processed fragments based on tile configuration.
 
 - **Input Ports**:
@@ -238,9 +238,9 @@ For latent space, a simplified "center crop" strategy is used:
 ### Common Workflows
 
 ### SDXL 经典分块采样高清修复复刻
-
+![](<./example_workflows/SDXL 经典分块采样高清修复复刻.png>)
 ### Z-Image质量升级
-
+![](./example_workflows/Z-Image质量升级.png)
 ## ⚠️ Common Issues (FAQ)
 
 - **Q: Why are there faint marks at the edges after merging?**
@@ -312,5 +312,6 @@ ComfyUI-Advanced-Tile-Processing/
 Feel free to submit Issues or Pull Requests. If you find areas for improvement while using this project, please reach out.
 
 ## 📜 License
+
 
 This project is open-source under the [Apache-2.0 license](https://github.com/QL-boy/comfyui-ps-plugin#Apache-2.0-1-ov-file "null").
