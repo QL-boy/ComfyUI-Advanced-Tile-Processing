@@ -1,6 +1,6 @@
 # ComfyUI-Advanced-Tile-Processing
 
-[中文](https://www.google.com/search?q=README_CN.md "null") [English](https://www.google.com/search?q=README.md "null")
+[中文](README_CN) [English](README.md)
 
 **ComfyUI-Advanced-Tile-Processing** 是一套专为 ComfyUI 设计的高级自定义节点插件。它旨在解决超高分辨率图像生成和处理中的显存瓶颈（VRAM OOM），通过智能分块（Tiling）与多种高级融合技术的无缝合并（Merging），让您能够在普通消费级显卡上稳定处理 4K、8K 甚至更高规格的图像。
 
@@ -312,5 +312,6 @@ ComfyUI-Advanced-Tile-Processing/
 欢迎提交 Issue 或 Pull Request。如果您在使用中发现本项目可以改进的地方，请随时联系。
 
 ## 📜 许可说明
+
 
 本项目基于 [Apache-2.0 license](https://github.com/QL-boy/comfyui-ps-plugin#Apache-2.0-1-ov-file "null") 许可证开源。
