@@ -1,0 +1,22 @@
+{
+  "settingsCategories": {
+    "TileProcessing": "Tile Processing",
+    "AdvancedBlending": "Advanced Blending",
+    "SeamOptimization": "Seam Optimization"
+  },
+  "nodeCategories": {
+    "image/postprocessing": "Image/Postprocessing"
+  },
+  "commonTerms": {
+    "tile": "Tile",
+    "overlap": "Overlap",
+    "blend": "Blend",
+    "seam": "Seam",
+    "split": "Split",
+    "merge": "Merge",
+    "config": "Configuration",
+    "strength": "Strength",
+    "optimal": "Optimal",
+    "middle": "Middle"
+  }
+}
